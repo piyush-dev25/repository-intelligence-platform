@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.auth import router as auth_router
 
 app = FastAPI()
 
@@ -18,3 +19,5 @@ def health_check():
 @app.get("/")
 def read_root():
     return {"status": "success", "message": "Repository Intelligence Platform Backend is running!"}
+
+app.include_router(auth_router)
