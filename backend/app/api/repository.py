@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, status, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.services.repository_service import (
     get_repository_for_owner,
     list_user_repositories,
     register_repository,
+    ingest_uploaded_repository,
 )
 
 router = APIRouter(
@@ -59,3 +60,18 @@ def get_repository(
 ):
     current_user = get_current_user(db, credentials.credentials)
     return get_repository_for_owner(db, repository_id, current_user.id)
+
+# Accepts an uploaded zip file for a repo that was registered as
+# source_type "upload", saves + unzips it, and updates its status.
+@router.post(
+    "/{repository_id}/upload",
+    response_model=RepositoryOut,
+)
+def upload_repository_file(
+    repository_id: int,
+    file: UploadFile = File(...),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(db, credentials.credentials)
+    return ingest_uploaded_repository(db, repository_id, current_user.id, file)

@@ -29,6 +29,7 @@ class RepositoryOut(RepositoryBase):
     owner_id: int
     source_type: SourceType
     source_url: str | None
+    storage_path: str | None
     status: RepositoryStatus
     error_message: str | None
     created_at: datetime

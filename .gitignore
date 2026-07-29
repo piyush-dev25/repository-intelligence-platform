@@ -27,4 +27,8 @@ Thumbs.db
 .idea/
 
 # Repository Uploads
-repositories/
+storage/
+storage/repos/.gitkeep
+
+# Later Fixes
+Later_Fixes.md
