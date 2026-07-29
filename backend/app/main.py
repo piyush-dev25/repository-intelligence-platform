@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.repository import router as repository_router 
@@ -24,3 +26,13 @@ def read_root():
 app.include_router(auth_router)
 
 app.include_router(repository_router)
+
+# Catches database connection failures anywhere in the app (e.g. Docker
+# not running) and returns a clean error instead of hanging or crashing
+# with a raw traceback.
+@app.exception_handler(OperationalError)
+def database_connection_error_handler(request, exc):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Database is currently unavailable. Please try again later."},
+    )

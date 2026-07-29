@@ -8,7 +8,12 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_engine(DATABASE_URL)
+# connect_timeout tells it to give up after 5 seconds instead of
+# hanging forever if the database can't be reached (e.g. Docker's off).
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"connect_timeout": 5},
+)
 
 SessionLocal = sessionmaker(
     bind=engine,
