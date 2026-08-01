@@ -11,6 +11,7 @@ from app.services.repository_service import (
     register_repository,
     ingest_uploaded_repository,
     ingest_git_repository,
+    remove_repository,
 )
 
 router = APIRouter(
@@ -90,3 +91,16 @@ def clone_repository_endpoint(
 ):
     current_user = get_current_user(db, credentials.credentials)
     return ingest_git_repository(db, repository_id, current_user.id)
+
+# Deletes a repo entirely - database row and files on disk.
+@router.delete(
+    "/{repository_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_repository_endpoint(
+    repository_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(db, credentials.credentials)
+    remove_repository(db, repository_id, current_user.id)

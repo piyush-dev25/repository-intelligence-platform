@@ -47,3 +47,8 @@ def update_repository_storage_path(
     db.commit()
     db.refresh(db_repo)
     return db_repo
+
+# Deletes a repo's row from the database.
+def delete_repository(db: Session, db_repo: Repository) -> None:
+    db.delete(db_repo)
+    db.commit()

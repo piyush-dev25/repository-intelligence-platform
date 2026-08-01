@@ -6,10 +6,11 @@ from app.data_access.repository_data_access import (
     get_repository_by_id,
     update_repository_status,
     update_repository_storage_path,
+    delete_repository,
 )
 from app.models.repository import Repository, RepositoryStatus, SourceType
 from app.schemas.repository import RepositoryCreate
-from app.services.storage_service import save_and_unzip_repository, clone_repository
+from app.services.storage_service import save_and_unzip_repository, clone_repository, delete_repository_files
 
 # Creates a new repo record. Doesn't clone/download any files yet -
 # that happens later, in the upload/scan step.
@@ -129,3 +130,18 @@ def ingest_git_repository(
 
     update_repository_storage_path(db, repo, storage_path)
     return update_repository_status(db, repo, RepositoryStatus.READY)
+
+# Deletes a repo entirely - both its database row and its files on disk.
+# Owner-checked, same as every other repo-specific operation.
+def remove_repository(
+    db: Session,
+    repository_id: int,
+    owner_id: int,
+) -> None:
+    repo = get_repository_for_owner(db, repository_id, owner_id)
+
+    # Remove files first, then the database row. If file deletion fails,
+    # we'd rather still have the DB record (so you know it exists and
+    # can retry) than lose track of orphaned files with no record at all.
+    delete_repository_files(repo.id)
+    delete_repository(db, repo)

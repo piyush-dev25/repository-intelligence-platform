@@ -48,3 +48,10 @@ def clone_repository(repository_id: int, source_url: str) -> str:
         raise RuntimeError(error)
     
     return repo_folder.as_posix()
+
+# Deletes a repo's entire folder from disk, if it exists.
+def delete_repository_files(repository_id: int) -> None:
+    repo_folder = Path(REPO_STORAGE_DIR) / str(repository_id)
+
+    if repo_folder.exists():
+        shutil.rmtree(repo_folder)
