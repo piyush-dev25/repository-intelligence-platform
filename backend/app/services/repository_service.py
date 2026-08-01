@@ -9,7 +9,7 @@ from app.data_access.repository_data_access import (
 )
 from app.models.repository import Repository, RepositoryStatus, SourceType
 from app.schemas.repository import RepositoryCreate
-from app.services.storage_service import save_and_unzip_repository
+from app.services.storage_service import save_and_unzip_repository, clone_repository
 
 # Creates a new repo record. Doesn't clone/download any files yet -
 # that happens later, in the upload/scan step.
@@ -84,6 +84,47 @@ def ingest_uploaded_repository(
         raise HTTPException(
             status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to process uploaded file: {exc}",
+        )
+
+    update_repository_storage_path(db, repo, storage_path)
+    return update_repository_status(db, repo, RepositoryStatus.READY)
+
+
+# Clones a git repo for a repo that's already registered, and updates
+# its status accordingly. Mirrors ingest_uploaded_repository's shape.
+def ingest_git_repository(
+    db: Session,
+    repository_id: int,
+    owner_id: int,
+) -> Repository:
+    repo = get_repository_for_owner(db, repository_id, owner_id)
+
+    # Make sure this repo was actually registered as a "git" type -
+    # cloning makes no sense for an upload-type repo.
+    if repo.source_type != SourceType.GIT:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="This repository is not a git-type repository.",
+        )
+
+    # Defensive check - the schema validator guarantees this at the API
+    # boundary, but this function shouldn't blindly trust that. Protects
+    # against a manually edited DB row or a future bug elsewhere.
+    if not repo.source_url:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Repository has no source URL.",
+        )
+
+    update_repository_status(db, repo, RepositoryStatus.SCANNING)
+
+    try:
+        storage_path = clone_repository(repo.id, repo.source_url)
+    except Exception as exc:
+        update_repository_status(db, repo, RepositoryStatus.FAILED, str(exc))
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to clone repository: {exc}",
         )
 
     update_repository_storage_path(db, repo, storage_path)

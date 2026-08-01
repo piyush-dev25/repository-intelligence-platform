@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 import zipfile
+import subprocess
 
 from fastapi import UploadFile
 
@@ -23,4 +24,27 @@ def save_and_unzip_repository(repository_id: int, file: UploadFile) -> str:
 
     # Convert to a plain string with forward slashes, so what's stored
     # in the database is consistent no matter which OS this runs on.
+    return repo_folder.as_posix()
+
+def clone_repository(repository_id: int, source_url: str) -> str:
+    repo_folder = Path(REPO_STORAGE_DIR) / str(repository_id)
+
+    # git requires an empty target folder - clean up any leftovers from
+    # a previous failed attempt before cloning fresh, so retries work.
+    if repo_folder.exists():
+        shutil.rmtree(repo_folder)
+    repo_folder.mkdir(parents=True)
+
+    try:
+        subprocess.run(
+            ["git", "clone", "--depth", "1", source_url, str(repo_folder)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        error = (exc.stderr or exc.stdout or "Unknown git error").strip()
+        raise RuntimeError(error)
+    
     return repo_folder.as_posix()

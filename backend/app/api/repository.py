@@ -10,6 +10,7 @@ from app.services.repository_service import (
     list_user_repositories,
     register_repository,
     ingest_uploaded_repository,
+    ingest_git_repository,
 )
 
 router = APIRouter(
@@ -75,3 +76,17 @@ def upload_repository_file(
 ):
     current_user = get_current_user(db, credentials.credentials)
     return ingest_uploaded_repository(db, repository_id, current_user.id, file)
+
+# Clones a git repo for a repo that was registered as source_type "git",
+# and updates its status accordingly.
+@router.post(
+    "/{repository_id}/clone",
+    response_model=RepositoryOut,
+)
+def clone_repository_endpoint(
+    repository_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(db, credentials.credentials)
+    return ingest_git_repository(db, repository_id, current_user.id)
