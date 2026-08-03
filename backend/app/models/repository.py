@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.database import Base
 
@@ -57,9 +57,37 @@ class Repository(Base):
         default=lambda: datetime.now(timezone.utc),
     )
 
+    # --- Scan results (filled in once scanning completes) ---
+    total_files: Mapped[int | None] = mapped_column(nullable=True)
+    total_directories: Mapped[int | None] = mapped_column(nullable=True)
+    total_size_bytes: Mapped[int | None] = mapped_column(nullable=True)
+
+    # e.g. {".py": 142, ".ts": 98} - counts per file extension
+    language_breakdown: Mapped[dict[str, int] | None] = mapped_column(JSON, nullable=True)
+
+    # e.g. ["README.md", "package.json"] - notable files found
+    key_files: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+
+    scan_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
     # Auto-updates every time the row changes, thanks to onupdate.
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+class RepositoryFile(Base):
+    __tablename__ = "repository_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id"), index=True,
+    )
+
+    path: Mapped[str] = mapped_column(String(1024))
+    extension: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    size_bytes: Mapped[int] = mapped_column()

@@ -32,6 +32,12 @@ class RepositoryOut(RepositoryBase):
     storage_path: str | None
     status: RepositoryStatus
     error_message: str | None
+    total_files: int | None
+    total_directories: int | None
+    total_size_bytes: int | None
+    language_breakdown: dict[str, int] | None
+    key_files: list[str] | None
+    scan_completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

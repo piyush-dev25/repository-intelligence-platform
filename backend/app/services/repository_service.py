@@ -7,10 +7,16 @@ from app.data_access.repository_data_access import (
     update_repository_status,
     update_repository_storage_path,
     delete_repository,
+    update_repository_scan_summary,
 )
-from app.models.repository import Repository, RepositoryStatus, SourceType
+from app.data_access.repository_file_data_access import (
+    create_repository_files,
+    delete_files_by_repository,
+)
+from app.models.repository import Repository, RepositoryStatus, SourceType, RepositoryFile
 from app.schemas.repository import RepositoryCreate
 from app.services.storage_service import save_and_unzip_repository, clone_repository, delete_repository_files
+from app.services.scanner_service import scan_repository as run_filesystem_scan
 
 # Creates a new repo record. Doesn't clone/download any files yet -
 # that happens later, in the upload/scan step.
@@ -59,6 +65,7 @@ def ingest_uploaded_repository(
     repository_id: int,
     owner_id: int,
     file: UploadFile,
+    auto_scan: bool = True,
 ) -> Repository:
     # Reuses the ownership check we already built - only the owner
     # can upload files for their own repo.
@@ -84,7 +91,12 @@ def ingest_uploaded_repository(
         )
 
     update_repository_storage_path(db, repo, storage_path)
-    return update_repository_status(db, repo, RepositoryStatus.INGESTED)
+    repo = update_repository_status(db, repo, RepositoryStatus.INGESTED)
+
+    if auto_scan:
+        repo = scan_repository(db, repo.id, owner_id)
+
+    return repo
 
 
 # Clones a git repo for a repo that's already registered, and updates
@@ -93,6 +105,7 @@ def ingest_git_repository(
     db: Session,
     repository_id: int,
     owner_id: int,
+    auto_scan: bool = True,
 ) -> Repository:
     repo = get_repository_for_owner(db, repository_id, owner_id)
 
@@ -123,7 +136,12 @@ def ingest_git_repository(
         )
 
     update_repository_storage_path(db, repo, storage_path)
-    return update_repository_status(db, repo, RepositoryStatus.INGESTED)
+    repo = update_repository_status(db, repo, RepositoryStatus.INGESTED)
+
+    if auto_scan:
+        repo = scan_repository(db, repo.id, owner_id)
+
+    return repo
 
 # Deletes a repo entirely - both its database row and its files on disk.
 # Owner-checked, same as every other repo-specific operation.
@@ -139,3 +157,58 @@ def remove_repository(
     # can retry) than lose track of orphaned files with no record at all.
     delete_repository_files(repo.id)
     delete_repository(db, repo)
+
+
+# Scans a repo's files on disk, saves per-file records, and updates the
+# repo's summary fields (totals, languages, key files).
+def scan_repository(
+    db: Session,
+    repository_id: int,
+    owner_id: int,
+) -> Repository:
+    repo = get_repository_for_owner(db, repository_id, owner_id)
+
+    # Can't scan a repo that has no files yet.
+    if not repo.storage_path:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Repository has no files to scan yet.",
+        )
+
+    update_repository_status(db, repo, RepositoryStatus.SCANNING)
+
+    try:
+        scan_result = run_filesystem_scan(repo.storage_path)
+    except Exception as exc:
+        update_repository_status(db, repo, RepositoryStatus.FAILED, str(exc))
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to scan repository: {exc}",
+        )
+
+    # Clear any file records from a previous scan, so re-scans don't
+    # leave stale/duplicate entries behind.
+    delete_files_by_repository(db, repo.id)
+
+    file_records = [
+        RepositoryFile(
+            repository_id=repo.id,
+            path=file["path"],
+            extension=file["extension"],
+            size_bytes=file["size_bytes"],
+        )
+        for file in scan_result["files"]
+    ]
+    create_repository_files(db, file_records)
+
+    update_repository_scan_summary(
+        db,
+        repo,
+        total_files=scan_result["total_files"],
+        total_directories=scan_result["total_directories"],
+        total_size_bytes=scan_result["total_size_bytes"],
+        language_breakdown=scan_result["language_breakdown"],
+        key_files=scan_result["key_files"],
+    )
+
+    return update_repository_status(db, repo, RepositoryStatus.SCANNED)

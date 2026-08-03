@@ -12,6 +12,7 @@ from app.services.repository_service import (
     ingest_uploaded_repository,
     ingest_git_repository,
     remove_repository,
+    scan_repository,
 )
 
 router = APIRouter(
@@ -74,9 +75,10 @@ def upload_repository_file(
     file: UploadFile = File(...),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
+    auto_scan: bool = True,
 ):
     current_user = get_current_user(db, credentials.credentials)
-    return ingest_uploaded_repository(db, repository_id, current_user.id, file)
+    return ingest_uploaded_repository(db, repository_id, current_user.id, file, auto_scan)
 
 # Clones a git repo for a repo that was registered as source_type "git",
 # and updates its status accordingly.
@@ -88,9 +90,10 @@ def clone_repository_endpoint(
     repository_id: int,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
+    auto_scan: bool = True,
 ):
     current_user = get_current_user(db, credentials.credentials)
-    return ingest_git_repository(db, repository_id, current_user.id)
+    return ingest_git_repository(db, repository_id, current_user.id, auto_scan)
 
 # Deletes a repo entirely - database row and files on disk.
 @router.delete(
@@ -104,3 +107,17 @@ def delete_repository_endpoint(
 ):
     current_user = get_current_user(db, credentials.credentials)
     remove_repository(db, repository_id, current_user.id)
+
+# Scans a repo's files on disk and saves metadata (file list, languages,
+# key files, totals). Repo must already have files (status: ingested).
+@router.post(
+    "/{repository_id}/scan",
+    response_model=RepositoryOut,
+)
+def scan_repository_endpoint(
+    repository_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(db, credentials.credentials)
+    return scan_repository(db, repository_id, current_user.id)

@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.repository import Repository, RepositoryStatus
-
+from datetime import datetime, timezone
 
 # Saves a new repo row to the database.
 def create_repository(db: Session, db_repo: Repository) -> Repository:
@@ -52,3 +52,26 @@ def update_repository_storage_path(
 def delete_repository(db: Session, db_repo: Repository) -> None:
     db.delete(db_repo)
     db.commit()
+
+
+# Writes the scan summary fields onto a repo, all at once, and marks it
+# as scanned by stamping scan_completed_at with the current time.
+def update_repository_scan_summary(
+    db: Session,
+    db_repo: Repository,
+    total_files: int,
+    total_directories: int,
+    total_size_bytes: int,
+    language_breakdown: dict[str, int],
+    key_files: list[str],
+) -> Repository:
+    db_repo.total_files = total_files
+    db_repo.total_directories = total_directories
+    db_repo.total_size_bytes = total_size_bytes
+    db_repo.language_breakdown = language_breakdown
+    db_repo.key_files = key_files
+    db_repo.scan_completed_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(db_repo)
+    return db_repo
