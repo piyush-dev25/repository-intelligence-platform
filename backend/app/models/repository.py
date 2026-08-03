@@ -13,12 +13,13 @@ class SourceType(str, PyEnum):
 
 # Where a repo currently sits in the pipeline: upload -> scan -> embed -> ready.
 class RepositoryStatus(str, PyEnum):
-    PENDING = "pending"      # just registered, nothing's happened yet
-    SCANNING = "scanning"    # reading files, gathering metadata
-    EMBEDDING = "embedding"  # generating vector embeddings for search
-    READY = "ready"          # fully processed, safe to query
-    FAILED = "failed"        # something went wrong (see error_message)
-
+    PENDING = "pending"        # registered, no files yet
+    INGESTED = "ingested"      # files are on disk (uploaded/cloned), not scanned
+    SCANNING = "scanning"      # actively being scanned right now
+    SCANNED = "scanned"        # structural scan complete, not embedded yet
+    EMBEDDING = "embedding"    # actively generating embeddings
+    READY = "ready"            # fully processed, safe to query
+    FAILED = "failed"          # something went wrong (see error_message)
 
 class Repository(Base):
     __tablename__ = "repositories"

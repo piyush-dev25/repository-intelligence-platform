@@ -3,9 +3,20 @@ import shutil
 import zipfile
 import subprocess
 
+import os
+import stat
+
 from fastapi import UploadFile
 
 from app.core.config import REPO_STORAGE_DIR
+
+
+# Git marks some files (like pack files) read-only. On Windows,
+# shutil.rmtree can't delete read-only files by default and throws
+# "Access is denied." This forces the file to be writable, then retries.
+def _force_delete_readonly(func, path, exc):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
 
 
 def save_and_unzip_repository(repository_id: int, file: UploadFile) -> str:
@@ -32,7 +43,7 @@ def clone_repository(repository_id: int, source_url: str) -> str:
     # git requires an empty target folder - clean up any leftovers from
     # a previous failed attempt before cloning fresh, so retries work.
     if repo_folder.exists():
-        shutil.rmtree(repo_folder)
+        shutil.rmtree(repo_folder, onexc=_force_delete_readonly)
     repo_folder.mkdir(parents=True)
 
     try:
@@ -54,4 +65,4 @@ def delete_repository_files(repository_id: int) -> None:
     repo_folder = Path(REPO_STORAGE_DIR) / str(repository_id)
 
     if repo_folder.exists():
-        shutil.rmtree(repo_folder)
+        shutil.rmtree(repo_folder, onexc=_force_delete_readonly)

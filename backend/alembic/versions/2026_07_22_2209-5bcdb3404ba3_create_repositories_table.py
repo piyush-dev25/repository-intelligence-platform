@@ -28,7 +28,7 @@ def upgrade() -> None:
     sa.Column('source_type', sa.Enum('GIT', 'UPLOAD', name='source_type'), nullable=False),
     sa.Column('source_url', sa.String(length=2048), nullable=True),
     sa.Column('storage_path', sa.String(length=1024), nullable=True),
-    sa.Column('status', sa.Enum('PENDING', 'SCANNING', 'EMBEDDING', 'READY', 'FAILED', name='repository_status'), nullable=False),
+    sa.Column('status', sa.Enum('PENDING', 'INGESTED', 'SCANNING', 'SCANNED', 'EMBEDDING', 'READY', 'FAILED', name='repository_status'), nullable=False),
     sa.Column('error_message', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),

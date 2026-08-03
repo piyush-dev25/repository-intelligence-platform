@@ -72,10 +72,6 @@ def ingest_uploaded_repository(
             detail="This repository is not an upload-type repository.",
         )
 
-    # Mark as in-progress before starting, so status reflects reality
-    # while the file is actually being saved/unzipped, not just after.
-    update_repository_status(db, repo, RepositoryStatus.SCANNING)
-
     try:
         storage_path = save_and_unzip_repository(repo.id, file)
     except Exception as exc:
@@ -88,7 +84,7 @@ def ingest_uploaded_repository(
         )
 
     update_repository_storage_path(db, repo, storage_path)
-    return update_repository_status(db, repo, RepositoryStatus.READY)
+    return update_repository_status(db, repo, RepositoryStatus.INGESTED)
 
 
 # Clones a git repo for a repo that's already registered, and updates
@@ -117,8 +113,6 @@ def ingest_git_repository(
             detail="Repository has no source URL.",
         )
 
-    update_repository_status(db, repo, RepositoryStatus.SCANNING)
-
     try:
         storage_path = clone_repository(repo.id, repo.source_url)
     except Exception as exc:
@@ -129,7 +123,7 @@ def ingest_git_repository(
         )
 
     update_repository_storage_path(db, repo, storage_path)
-    return update_repository_status(db, repo, RepositoryStatus.READY)
+    return update_repository_status(db, repo, RepositoryStatus.INGESTED)
 
 # Deletes a repo entirely - both its database row and its files on disk.
 # Owner-checked, same as every other repo-specific operation.
