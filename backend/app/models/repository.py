@@ -91,3 +91,8 @@ class RepositoryFile(Base):
     path: Mapped[str] = mapped_column(String(1024))
     extension: Mapped[str | None] = mapped_column(String(50), nullable=True)
     size_bytes: Mapped[int] = mapped_column()
+
+    # Fingerprint of the file's content, used to detect whether a file
+    # actually changed since its last scan - lets us skip re-summarizing
+    # (Phase 4) unchanged files on a re-scan.
+    content_hash: Mapped[str] = mapped_column(String(64))

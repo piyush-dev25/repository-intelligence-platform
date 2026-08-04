@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 import os
 
@@ -33,10 +34,15 @@ def scan_repository(storage_path: str) -> dict:
             size_bytes = file_path.stat().st_size
             extension = file_path.suffix.lower() or None
 
+            # Fingerprint the file's content, so future scans can detect
+            # whether this exact file changed since last time.
+            content_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
+
             files.append({
                 "path": relative_path.as_posix(),
                 "extension": extension,
                 "size_bytes": size_bytes,
+                "content_hash": content_hash,
             })
 
             total_size_bytes += size_bytes

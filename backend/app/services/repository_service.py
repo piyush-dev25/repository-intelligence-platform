@@ -202,6 +202,7 @@ def scan_repository(
             path=file["path"],
             extension=file["extension"],
             size_bytes=file["size_bytes"],
+            content_hash=file["content_hash"],
         )
         for file in scan_result["files"]
     ]
