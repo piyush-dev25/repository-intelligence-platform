@@ -152,6 +152,12 @@ def remove_repository(
 ) -> None:
     repo = get_repository_for_owner(db, repository_id, owner_id)
 
+    # Delete file records first - the FK from repository_files to
+    # repositories means Postgres won't let us delete the repo row
+    # while file rows still reference it.
+    delete_files_by_repository(db, repo.id)
+
+
     # Remove files first, then the database row. If file deletion fails,
     # we'd rather still have the DB record (so you know it exists and
     # can retry) than lose track of orphaned files with no record at all.
