@@ -1,8 +1,12 @@
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.file_knowledge import FileKnowledge
 
 
 # The two ways a repo can enter the system: a git URL, or an uploaded file.
@@ -96,3 +100,8 @@ class RepositoryFile(Base):
     # actually changed since its last scan - lets us skip re-summarizing
     # (Phase 4) unchanged files on a re-scan.
     content_hash: Mapped[str] = mapped_column(String(64))
+
+    # A file may not have knowledge yet if it hasn't been analyzed
+    # (Phase 4) - hence the | None, unlike the FileKnowledge side which
+    # always has a file.
+    knowledge: Mapped["FileKnowledge | None"] = relationship(back_populates="repository_file")
