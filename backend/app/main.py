@@ -4,6 +4,7 @@ from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.repository import router as repository_router 
+from app.db import base  # noqa: F401 - imported for side effect (registers all models)
 
 app = FastAPI()
 

@@ -14,7 +14,7 @@ class FileKnowledge(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
     repository_file_id: Mapped[int] = mapped_column(
-        ForeignKey("repository_files.id"), unique=True, index=True,
+        ForeignKey("repository_files.id", ondelete="CASCADE"), unique=True, index=True,
     )
 
     language: Mapped[str] = mapped_column(String(50))

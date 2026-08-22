@@ -38,6 +38,10 @@ class RepositoryOut(RepositoryBase):
     language_breakdown: dict[str, int] | None
     key_files: list[str] | None
     scan_completed_at: datetime | None
+    analyzed_files_count: int
+    failed_files_count: int
+    skipped_files_count: int
+    repo_summary: str | None
     created_at: datetime
     updated_at: datetime
 

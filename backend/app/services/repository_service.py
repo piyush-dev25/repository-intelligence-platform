@@ -10,13 +10,14 @@ from app.data_access.repository_data_access import (
     update_repository_scan_summary,
 )
 from app.data_access.repository_file_data_access import (
-    create_repository_files,
     delete_files_by_repository,
+    reconcile_repository_files,
 )
 from app.models.repository import Repository, RepositoryStatus, SourceType, RepositoryFile
 from app.schemas.repository import RepositoryCreate
 from app.services.storage_service import save_and_unzip_repository, clone_repository, delete_repository_files
 from app.services.scanner_service import scan_repository as run_filesystem_scan
+from app.services.file_analysis_service import analyze_repository
 
 # Creates a new repo record. Doesn't clone/download any files yet -
 # that happens later, in the upload/scan step.
@@ -171,6 +172,7 @@ def scan_repository(
     db: Session,
     repository_id: int,
     owner_id: int,
+    auto_analyze: bool = True,
 ) -> Repository:
     repo = get_repository_for_owner(db, repository_id, owner_id)
 
@@ -194,19 +196,7 @@ def scan_repository(
 
     # Clear any file records from a previous scan, so re-scans don't
     # leave stale/duplicate entries behind.
-    delete_files_by_repository(db, repo.id)
-
-    file_records = [
-        RepositoryFile(
-            repository_id=repo.id,
-            path=file["path"],
-            extension=file["extension"],
-            size_bytes=file["size_bytes"],
-            content_hash=file["content_hash"],
-        )
-        for file in scan_result["files"]
-    ]
-    create_repository_files(db, file_records)
+    reconcile_repository_files(db, repo.id, scan_result["files"])
 
     update_repository_scan_summary(
         db,
@@ -218,4 +208,37 @@ def scan_repository(
         key_files=scan_result["key_files"],
     )
 
-    return update_repository_status(db, repo, RepositoryStatus.SCANNED)
+    repo = update_repository_status(db, repo, RepositoryStatus.SCANNED)
+
+    if auto_analyze:
+        analyze_repository(db, repo)
+
+    return repo
+
+# Standalone trigger for analysis, independent of scanning - used both
+# when auto_analyze=False was set during scan, and to re-run analysis
+# later (e.g. after new file-type support is added) without re-scanning.
+def start_repository_analysis(
+    db: Session,
+    repository_id: int,
+    owner_id: int,
+) -> Repository:
+    repo = get_repository_for_owner(db, repository_id, owner_id)
+
+    # Must have gone through scanning at least once - PENDING/INGESTED/
+    # SCANNING mean there are no RepositoryFile rows yet to analyze, and
+    # FAILED means something already went wrong upstream.
+    not_ready_statuses = {
+        RepositoryStatus.PENDING,
+        RepositoryStatus.INGESTED,
+        RepositoryStatus.SCANNING,
+        RepositoryStatus.FAILED,
+    }
+    if repo.status in not_ready_statuses:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"Repository must be scanned before it can be analyzed (current status: {repo.status.value}).",
+        )
+
+    analyze_repository(db, repo)
+    return repo

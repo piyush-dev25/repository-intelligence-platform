@@ -21,6 +21,8 @@ class RepositoryStatus(str, PyEnum):
     INGESTED = "ingested"      # files are on disk (uploaded/cloned), not scanned
     SCANNING = "scanning"      # actively being scanned right now
     SCANNED = "scanned"        # structural scan complete, not embedded yet
+    ANALYZING = "analyzing"    # actively extracting structure + generating summaries~
+    ANALYZED = "analyzed"      # structural extraction + summaries done, not embedded yet
     EMBEDDING = "embedding"    # actively generating embeddings
     READY = "ready"            # fully processed, safe to query
     FAILED = "failed"          # something went wrong (see error_message)
@@ -82,6 +84,14 @@ class Repository(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    # --- Analysis results (Phase 4 - filled in once analysis completes) ---
+    analyzed_files_count: Mapped[int] = mapped_column(default=0)
+    failed_files_count: Mapped[int] = mapped_column(default=0)
+    skipped_files_count: Mapped[int] = mapped_column(default=0)
+
+    # --- Repo-level summary (Phase 4 - generated once file analysis completes) ---
+    repo_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 class RepositoryFile(Base):
     __tablename__ = "repository_files"

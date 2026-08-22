@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.file_knowledge import FileKnowledge
+from app.models.repository import RepositoryFile
 
 
 # Saves a new FileKnowledge row after a file's been analyzed for the
@@ -42,3 +43,14 @@ def update_knowledge(
     existing.source_content_hash = source_content_hash
     db.commit()
     return existing
+
+# Gets every FileKnowledge row for a repo, by joining through
+# RepositoryFile (FileKnowledge has no direct repository_id of its own).
+# Used to gather all per-file summaries for the repo-level summary step.
+def get_knowledge_by_repository(db: Session, repository_id: int) -> list[FileKnowledge]:
+    statement = (
+        select(FileKnowledge)
+        .join(RepositoryFile, FileKnowledge.repository_file_id == RepositoryFile.id)
+        .where(RepositoryFile.repository_id == repository_id)
+    )
+    return db.execute(statement).scalars().all()

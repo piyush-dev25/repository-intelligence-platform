@@ -13,6 +13,7 @@ from app.services.repository_service import (
     ingest_git_repository,
     remove_repository,
     scan_repository,
+    start_repository_analysis,
 )
 
 router = APIRouter(
@@ -118,6 +119,19 @@ def scan_repository_endpoint(
     repository_id: int,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
+    auto_analyze: bool = True,
 ):
     current_user = get_current_user(db, credentials.credentials)
-    return scan_repository(db, repository_id, current_user.id)
+    return scan_repository(db, repository_id, current_user.id, auto_analyze)
+
+@router.post(
+    "/{repository_id}/analyze",
+    response_model=RepositoryOut,
+)
+def analyze_repository_endpoint(
+    repository_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(db, credentials.credentials)
+    return start_repository_analysis(db, repository_id, current_user.id)

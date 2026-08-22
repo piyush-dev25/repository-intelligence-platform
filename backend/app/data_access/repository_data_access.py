@@ -75,3 +75,25 @@ def update_repository_scan_summary(
     db.commit()
     db.refresh(db_repo)
     return db_repo
+
+
+def update_repository_analysis_summary(
+    db: Session,
+    db_repo: Repository,
+    analyzed_files_count: int,
+    failed_files_count: int,
+    skipped_files_count: int,
+) -> Repository:
+    db_repo.analyzed_files_count = analyzed_files_count
+    db_repo.failed_files_count = failed_files_count
+    db_repo.skipped_files_count = skipped_files_count
+
+    db.commit()
+    db.refresh(db_repo)
+    return db_repo
+
+def update_repository_summary(db: Session, db_repo: Repository, repo_summary: str) -> Repository:
+    db_repo.repo_summary = repo_summary
+    db.commit()
+    db.refresh(db_repo)
+    return db_repo
