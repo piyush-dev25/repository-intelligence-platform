@@ -1,14 +1,19 @@
-from tree_sitter import Language, Parser, Query, QueryCursor
-import tree_sitter_javascript as tsjavascript
-
+from tree_sitter import Language, Parser, QueryCursor, Query
 from app.services.extractors.base_extractor import BaseExtractor
+from app.services.extractors.typescript_extractor import TYPESCRIPT_QUERY
+import tree_sitter_typescript as tstypescript
 
-JS_LANGUAGE = Language(tsjavascript.language())
+# TSX grammar - same query as plain TypeScript works unchanged (JSX
+# nodes nest inside expressions, don't affect function/class/interface
+# structure), but the underlying grammar differs, so parsing needs its
+# own Language/Parser.
+TSX_LANGUAGE = Language(tstypescript.language_tsx())
 
-# Same query proven out on sample.js earlier. Unlike Python, JS's grammar
-# already separates function/method/arrow-function by node type, so we
-# don't need a parent-check here - just distinct capture labels per kind.
-JAVASCRIPT_QUERY = Query(JS_LANGUAGE, """
+# Same query TEXT as plain TypeScript (proven to work identically on
+# TSX's structure), but must be compiled fresh against TSX_LANGUAGE -
+# a Query object is tied to the specific Language it's built with, even
+# when node type names are identical across grammars.
+TSX_QUERY = Query(TSX_LANGUAGE, """
 (function_declaration
   name: (identifier) @function.name) @function.def
 
@@ -16,29 +21,32 @@ JAVASCRIPT_QUERY = Query(JS_LANGUAGE, """
   name: (property_identifier) @method.name) @method.def
 
 (class_declaration
-  name: (identifier) @class.name) @class.def
+  name: (type_identifier) @class.name) @class.def
 
 (variable_declarator
   name: (identifier) @arrow.name
   value: (arrow_function)) @arrow.def
 
+(interface_declaration
+  name: (type_identifier) @interface.name) @interface.def
+
 (import_statement) @import.statement
 """)
 
-
-class JavaScriptExtractor(BaseExtractor):
+class TsxExtractor(BaseExtractor):
     def __init__(self) -> None:
-        self.parser = Parser(JS_LANGUAGE)
+        self.parser = Parser(TSX_LANGUAGE)
 
     def extract(self, source_code: bytes) -> dict:
         tree = self.parser.parse(source_code)
-        cursor = QueryCursor(JAVASCRIPT_QUERY)
+        cursor = QueryCursor(TSX_QUERY)
 
         kind_map = {
             "function.def": ("function.name", "function"),
             "method.def": ("method.name", "method"),
             "class.def": ("class.name", "class"),
             "arrow.def": ("arrow.name", "function"),
+            "interface.def": ("interface.name", "interface"),
         }
 
         entities = []
@@ -59,4 +67,5 @@ class JavaScriptExtractor(BaseExtractor):
             if "import.statement" in match:
                 imports.append(match["import.statement"][0].text.decode("utf-8"))
 
-        return {"language": "javascript", "entities": entities, "imports": imports}
+        return {"language": "tsx", "entities": entities, "imports": imports}
+

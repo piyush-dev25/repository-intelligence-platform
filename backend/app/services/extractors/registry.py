@@ -4,6 +4,9 @@ from app.services.extractors.base_extractor import BaseExtractor
 from app.services.extractors.python_extractor import PythonExtractor
 from app.services.extractors.javascript_extractor import JavaScriptExtractor
 from app.services.extractors.typescript_extractor import TypeScriptExtractor
+from app.services.extractors.tsx_extractor import TsxExtractor
+from app.services.extractors.html_extractor import HtmlExtractor
+from app.services.extractors.css_extractor import CssExtractor
 
 # One shared instance per extractor, same reasoning as llm_service's shared
 # client - each extractor just wraps a Parser, no per-file state to reset,
@@ -12,6 +15,10 @@ _EXTENSION_TO_EXTRACTOR: dict[str, BaseExtractor] = {
     ".py": PythonExtractor(),
     ".js": JavaScriptExtractor(),
     ".ts": TypeScriptExtractor(),
+    ".jsx": JavaScriptExtractor(),
+    ".tsx": TsxExtractor(),
+    ".html": HtmlExtractor(),
+    ".css": CssExtractor(),
 }
 
 

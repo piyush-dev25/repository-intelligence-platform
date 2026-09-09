@@ -29,53 +29,37 @@ class PythonExtractor(BaseExtractor):
     def extract(self, source_code: bytes) -> dict:
         tree = self.parser.parse(source_code)
         cursor = QueryCursor(PYTHON_QUERY)
-        captures = cursor.captures(tree.root_node)
 
         entities = []
+        for pattern_index, match in cursor.matches(tree.root_node):
+            if "function.def" in match:
+                def_node = match["function.def"][0]
+                name_node = match["function.name"][0]
+                is_method = (
+                    def_node.parent is not None
+                    and def_node.parent.parent is not None
+                    and def_node.parent.parent.type == "class_definition"
+                )
+                entities.append({
+                    "name": name_node.text.decode("utf-8"),
+                    "kind": "method" if is_method else "function",
+                    "start_line": def_node.start_point[0] + 1,
+                    "end_line": def_node.end_point[0] + 1,
+                })
+            elif "class.name" in match:
+                name_node = match["class.name"][0]
+                class_node = name_node.parent
+                entities.append({
+                    "name": name_node.text.decode("utf-8"),
+                    "kind": "class",
+                    "start_line": class_node.start_point[0] + 1,
+                    "end_line": class_node.end_point[0] + 1,
+                })
 
-        # We capture both @function.def (whole node) and @function.name
-        # (just the identifier) for the same function - we need the whole
-        # node to run the parent-check, and the name node to get the text.
-        function_defs = captures.get("function.def", [])
-        function_names = captures.get("function.name", [])
+        imports = []
+        for pattern_index, match in cursor.matches(tree.root_node):
+            if "import.statement" in match:
+                imports.append(match["import.statement"][0].text.decode("utf-8"))
 
-        for def_node, name_node in zip(function_defs, function_names):
-            # Python wraps class bodies in a generic "block" node before
-            # class_definition - confirmed earlier by inspecting the tree.
-            # So checking one level up (def_node.parent) always lands on
-            # "block", regardless of whether it's a class or not. We have
-            # to go up two levels to reach class_definition itself.
-            is_method = (
-                def_node.parent is not None
-                and def_node.parent.parent is not None
-                and def_node.parent.parent.type == "class_definition"
-            )
-            entities.append({
-                "name": name_node.text.decode("utf-8"),
-                "kind": "method" if is_method else "function",
-                "start_line": def_node.start_point[0] + 1,  # tree-sitter is 0-indexed, files aren't
-                "end_line": def_node.end_point[0] + 1,
-            })
+        return {"language": "python", "entities": entities, "imports": imports}
 
-        for node in captures.get("class.name", []):
-            # class.name only captures the identifier, not the whole
-            # class_definition - we need the parent to get start/end lines
-            # covering the whole class, not just its name token.
-            class_node = node.parent
-            entities.append({
-                "name": node.text.decode("utf-8"),
-                "kind": "class",
-                "start_line": class_node.start_point[0] + 1,
-                "end_line": class_node.end_point[0] + 1,
-            })
-
-        imports = [
-            node.text.decode("utf-8")
-            for node in captures.get("import.statement", [])
-        ]
-
-        return {
-            "language": "python",
-            "entities": entities,
-            "imports": imports,
-        }
