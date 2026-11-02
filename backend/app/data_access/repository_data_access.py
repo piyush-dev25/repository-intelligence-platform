@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from app.models.repository import Repository, RepositoryStatus
 from datetime import datetime, timezone
@@ -97,3 +97,22 @@ def update_repository_summary(db: Session, db_repo: Repository, repo_summary: st
     db.commit()
     db.refresh(db_repo)
     return db_repo
+
+
+# Marks every repo stuck mid-processing (scanning/analyzing) as failed, in
+# one UPDATE. Used at server startup: background work dies with the server,
+# so any repo still in those statuses can never finish on its own.
+# Returns how many repos were reset.
+def mark_interrupted_repositories_failed(db: Session, error_message: str) -> int:
+    statement = (
+        update(Repository)
+        .where(Repository.status.in_([RepositoryStatus.SCANNING, RepositoryStatus.ANALYZING]))
+        .values(
+            status=RepositoryStatus.FAILED,
+            error_message=error_message,
+            updated_at=datetime.now(timezone.utc),
+        )
+    )
+    result = db.execute(statement)
+    db.commit()
+    return result.rowcount

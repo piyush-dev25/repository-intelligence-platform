@@ -47,3 +47,18 @@ class RepositoryOut(RepositoryBase):
 
     # Lets Pydantic read this straight from a SQLAlchemy object.
     model_config = ConfigDict(from_attributes=True)
+
+
+# Small response for the status endpoint - just what a client needs to
+# poll progress, without the full repo record every few seconds.
+class RepositoryStatusOut(BaseModel):
+    id: int
+    status: RepositoryStatus
+    error_message: str | None
+    total_files: int | None
+    analyzed_files_count: int
+    failed_files_count: int
+    skipped_files_count: int
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

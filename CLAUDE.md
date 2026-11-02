@@ -7,7 +7,7 @@ shows a repo dashboard with an interactive dependency graph, and offers a chat
 that answers architecture / search / dependency / impact questions with file+line
 citations. Not a startup — prefer simple, working solutions over scale.
 
-Full plan and locked design decisions: `docs/roadmap-v1.md`. Follow it.
+Full plan and locked design decisions: `docs/roadmap/v1.md`. Follow it.
 If a task seems to need a decision the roadmap doesn't cover, STOP and ask —
 do not decide it yourself.
 
@@ -51,6 +51,7 @@ do not decide it yourself.
    - **Watch out for:** anything risky, unfinished, or assumed
    - **Concepts used:** key ideas/patterns in this change, so Piyush can study them
 3. Wait for Piyush to confirm it works before continuing.
+4. Tick the task's checkbox in `docs/roadmap/v1.md` as the last step of the task.
 
 ## Commands (verify these match your setup)
 - Start services: `docker compose up -d`

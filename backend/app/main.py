@@ -1,12 +1,33 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
-from app.api.repository import router as repository_router 
+from app.api.repository import router as repository_router
 from app.db import base  # noqa: F401 - imported for side effect (registers all models)
+from app.db.database import SessionLocal
+from app.services.repository_service import reset_interrupted_repositories
 
-app = FastAPI()
+
+# Runs once when the server starts (code before `yield`). Resets repos left
+# stuck in scanning/analyzing by a previous run, since their background work
+# died with the old server. If the DB is down, warn and start anyway - the
+# OperationalError handler below already covers requests in that case.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db = SessionLocal()
+    try:
+        reset_interrupted_repositories(db)
+    except OperationalError:
+        print("Startup: database unavailable - skipped resetting interrupted repositories.")
+    finally:
+        db.close()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

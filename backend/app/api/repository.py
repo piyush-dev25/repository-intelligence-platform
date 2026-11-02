@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, File, status, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, status, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.repository import RepositoryCreate, RepositoryOut
+from app.schemas.repository import RepositoryCreate, RepositoryOut, RepositoryStatusOut
 from app.services.auth_service import get_current_user
 from app.services.repository_service import (
     get_repository_for_owner,
@@ -65,6 +65,20 @@ def get_repository(
     current_user = get_current_user(db, credentials.credentials)
     return get_repository_for_owner(db, repository_id, current_user.id)
 
+# Lightweight progress check for a repo - the client polls this while
+# scanning/analysis runs in the background.
+@router.get(
+    "/{repository_id}/status",
+    response_model=RepositoryStatusOut,
+)
+def get_repository_status(
+    repository_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    current_user = get_current_user(db, credentials.credentials)
+    return get_repository_for_owner(db, repository_id, current_user.id)
+
 # Accepts an uploaded zip file for a repo that was registered as
 # source_type "upload", saves + unzips it, and updates its status.
 @router.post(
@@ -73,13 +87,14 @@ def get_repository(
 )
 def upload_repository_file(
     repository_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
     auto_scan: bool = True,
 ):
     current_user = get_current_user(db, credentials.credentials)
-    return ingest_uploaded_repository(db, repository_id, current_user.id, file, auto_scan)
+    return ingest_uploaded_repository(db, repository_id, current_user.id, file, background_tasks, auto_scan)
 
 # Clones a git repo for a repo that was registered as source_type "git",
 # and updates its status accordingly.
@@ -89,12 +104,13 @@ def upload_repository_file(
 )
 def clone_repository_endpoint(
     repository_id: int,
+    background_tasks: BackgroundTasks,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
     auto_scan: bool = True,
 ):
     current_user = get_current_user(db, credentials.credentials)
-    return ingest_git_repository(db, repository_id, current_user.id, auto_scan)
+    return ingest_git_repository(db, repository_id, current_user.id, background_tasks, auto_scan)
 
 # Deletes a repo entirely - database row and files on disk.
 @router.delete(
@@ -117,12 +133,13 @@ def delete_repository_endpoint(
 )
 def scan_repository_endpoint(
     repository_id: int,
+    background_tasks: BackgroundTasks,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
     auto_analyze: bool = True,
 ):
     current_user = get_current_user(db, credentials.credentials)
-    return scan_repository(db, repository_id, current_user.id, auto_analyze)
+    return scan_repository(db, repository_id, current_user.id, background_tasks, auto_analyze)
 
 @router.post(
     "/{repository_id}/analyze",
@@ -130,8 +147,9 @@ def scan_repository_endpoint(
 )
 def analyze_repository_endpoint(
     repository_id: int,
+    background_tasks: BackgroundTasks,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ):
     current_user = get_current_user(db, credentials.credentials)
-    return start_repository_analysis(db, repository_id, current_user.id)
+    return start_repository_analysis(db, repository_id, current_user.id, background_tasks)
