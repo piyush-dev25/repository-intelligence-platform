@@ -13,6 +13,9 @@ class BaseExtractor(ABC):
         
         # Takes raw file bytes, returns a dict matching our locked shape:
         # {"language": str, "entities": [...], "imports": [...]}
+        # Each import is {"module": str, "names": list[str],
+        # "is_relative": bool, "line": int} - module exactly as written
+        # in the source, line 1-based.
         # Every subclass must implement this - ABC + abstractmethod means
         # Python won't let BaseExtractor itself be instantiated directly.
         

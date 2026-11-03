@@ -2,10 +2,14 @@ from tree_sitter import Language, Parser, Query, QueryCursor
 import tree_sitter_typescript as tstypescript
 
 from app.services.extractors.base_extractor import BaseExtractor
+from app.services.extractors.js_imports import build_js_import_query, extract_js_imports
 
 # tree_sitter_typescript exposes two grammars - plain TS and TSX.
 # We want plain TS here; TSX is tracked separately (not built yet).
 TS_LANGUAGE = Language(tstypescript.language_typescript())
+
+# Shared import query (see js_imports.py), compiled for this grammar.
+TS_IMPORT_QUERY = build_js_import_query(TS_LANGUAGE)
 
 # Same query proven out on sample.ts earlier. Two TS-specific differences
 # from the JS query: class/interface names use type_identifier (not
@@ -27,8 +31,6 @@ TYPESCRIPT_QUERY = Query(TS_LANGUAGE, """
 
 (interface_declaration
   name: (type_identifier) @interface.name) @interface.def
-
-(import_statement) @import.statement
 """)
 
 
@@ -61,10 +63,7 @@ class TypeScriptExtractor(BaseExtractor):
                         "end_line": def_node.end_point[0] + 1,
                     })
 
-        imports = []
-        for pattern_index, match in cursor.matches(tree.root_node):
-            if "import.statement" in match:
-                imports.append(match["import.statement"][0].text.decode("utf-8"))
+        imports = extract_js_imports(tree.root_node, TS_IMPORT_QUERY)
 
         return {"language": "typescript", "entities": entities, "imports": imports}
 

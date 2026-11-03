@@ -26,6 +26,14 @@ HTML_QUERY = Query(HTML_LANGUAGE, """
     (#eq? @link.tag "link")
     (#eq? @href.name "href")))
 
+(self_closing_tag
+  (tag_name) @link.tag
+  (attribute
+    (attribute_name) @href.name
+    (quoted_attribute_value (attribute_value) @import.href))
+  (#eq? @link.tag "link")
+  (#eq? @href.name "href"))
+
 (script_element
   (start_tag
     (attribute
@@ -78,13 +86,26 @@ class HtmlExtractor(BaseExtractor):
 
       imports = []
       for pattern_index, match_captures in cursor.matches(tree.root_node):
-          if "import.href" in match_captures:
-              imports.append(match_captures["import.href"][0].text.decode("utf-8"))
-          if "import.src" in match_captures:
-              imports.append(match_captures["import.src"][0].text.decode("utf-8"))
+          for key in ("import.href", "import.src"):
+              if key in match_captures:
+                  value_node = match_captures[key][0]
+                  value = value_node.text.decode("utf-8")
+                  imports.append({
+                      "module": value,
+                      "names": [],
+                      "is_relative": _is_relative_url(value),
+                      "line": value_node.start_point[0] + 1,
+                  })
 
+      imports.sort(key=lambda entry: entry["line"])
       return {
           "language": "html",
           "entities": entities,
           "imports": imports,
       }
+
+
+# A link/script target is relative (a file in this repo) unless it's a
+# full URL, a protocol-relative URL (//cdn...) or inline data: content.
+def _is_relative_url(value: str) -> bool:
+    return not value.startswith(("http://", "https://", "//", "data:"))

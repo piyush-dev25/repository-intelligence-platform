@@ -14,4 +14,6 @@ def test_tsx_extractor():
         ("Greeting", "function"),
         ("Farewell", "function"),
     }
-    assert result["imports"] == ['import React from "react";']
+    assert result["imports"] == [
+        {"module": "react", "names": ["default"], "is_relative": False, "line": 1},
+    ]

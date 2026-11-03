@@ -33,7 +33,7 @@ def update_knowledge_structure(
     existing: FileKnowledge,
     language: str,
     entities: list[dict],
-    imports: list[str],
+    imports: list[dict],
     source_content_hash: str,
     clear_summary: bool,
 ) -> FileKnowledge:

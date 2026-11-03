@@ -15,4 +15,7 @@ def test_html_extractor():
         ("signup-form", "element"),
         ("main", "element"),
     }
-    assert set(result["imports"]) == {"styles.css", "app.js"}
+    assert result["imports"] == [
+        {"module": "styles.css", "names": [], "is_relative": True, "line": 4},
+        {"module": "app.js", "names": [], "is_relative": True, "line": 15},
+    ]

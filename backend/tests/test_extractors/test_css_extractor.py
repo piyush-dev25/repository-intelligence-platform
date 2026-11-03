@@ -14,4 +14,6 @@ def test_css_extractor():
         ("#header", "selector"),
         ("button:hover", "selector"),
     }
-    assert result["imports"] == ['@import url("reset.css");']
+    assert result["imports"] == [
+        {"module": "reset.css", "names": [], "is_relative": True, "line": 1},
+    ]

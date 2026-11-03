@@ -2,8 +2,12 @@ from tree_sitter import Language, Parser, Query, QueryCursor
 import tree_sitter_javascript as tsjavascript
 
 from app.services.extractors.base_extractor import BaseExtractor
+from app.services.extractors.js_imports import build_js_import_query, extract_js_imports
 
 JS_LANGUAGE = Language(tsjavascript.language())
+
+# Shared import query (see js_imports.py), compiled for this grammar.
+JS_IMPORT_QUERY = build_js_import_query(JS_LANGUAGE)
 
 # Same query proven out on sample.js earlier. Unlike Python, JS's grammar
 # already separates function/method/arrow-function by node type, so we
@@ -21,8 +25,6 @@ JAVASCRIPT_QUERY = Query(JS_LANGUAGE, """
 (variable_declarator
   name: (identifier) @arrow.name
   value: (arrow_function)) @arrow.def
-
-(import_statement) @import.statement
 """)
 
 
@@ -54,9 +56,6 @@ class JavaScriptExtractor(BaseExtractor):
                         "end_line": def_node.end_point[0] + 1,
                     })
 
-        imports = []
-        for pattern_index, match in cursor.matches(tree.root_node):
-            if "import.statement" in match:
-                imports.append(match["import.statement"][0].text.decode("utf-8"))
+        imports = extract_js_imports(tree.root_node, JS_IMPORT_QUERY)
 
         return {"language": "javascript", "entities": entities, "imports": imports}

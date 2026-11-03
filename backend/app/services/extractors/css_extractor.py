@@ -35,6 +35,45 @@ class CssExtractor(BaseExtractor):
         imports = []
         for pattern_index, match in cursor.matches(tree.root_node):
             if "import.statement" in match:
-                imports.append(match["import.statement"][0].text.decode("utf-8"))
+                statement = match["import.statement"][0]
+                module = _import_target(statement)
+                if module:
+                    imports.append({
+                        "module": module,
+                        "names": [],
+                        "is_relative": _is_relative_url(module),
+                        "line": statement.start_point[0] + 1,
+                    })
 
+        imports.sort(key=lambda entry: entry["line"])
         return {"language": "css", "entities": entities, "imports": imports}
+
+
+# Pulls just the path out of an @import, whichever form it's written in:
+# @import "x.css";  @import url("x.css");  @import url(x.css);
+# Returns None if the statement doesn't have a recognizable target.
+def _import_target(statement) -> str | None:
+    for child in statement.named_children:
+        if child.type == "string_value":
+            return _string_content(child)
+        if child.type == "call_expression":
+            arguments = next((c for c in child.named_children if c.type == "arguments"), None)
+            if arguments is None:
+                return None
+            for argument in arguments.named_children:
+                if argument.type == "string_value":
+                    return _string_content(argument)
+                if argument.type == "plain_value":
+                    return argument.text.decode("utf-8")
+    return None
+
+
+# The text inside a quoted CSS string, without the quotes.
+def _string_content(string_node) -> str:
+    return string_node.text.decode("utf-8")[1:-1]
+
+
+# An @import target is relative (a file in this repo) unless it's a full
+# URL, a protocol-relative URL (//cdn...) or inline data: content.
+def _is_relative_url(value: str) -> bool:
+    return not value.startswith(("http://", "https://", "//", "data:"))

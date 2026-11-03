@@ -1,5 +1,6 @@
 from tree_sitter import Language, Parser, QueryCursor, Query
 from app.services.extractors.base_extractor import BaseExtractor
+from app.services.extractors.js_imports import build_js_import_query, extract_js_imports
 from app.services.extractors.typescript_extractor import TYPESCRIPT_QUERY
 import tree_sitter_typescript as tstypescript
 
@@ -8,6 +9,9 @@ import tree_sitter_typescript as tstypescript
 # structure), but the underlying grammar differs, so parsing needs its
 # own Language/Parser.
 TSX_LANGUAGE = Language(tstypescript.language_tsx())
+
+# Shared import query (see js_imports.py), compiled for this grammar.
+TSX_IMPORT_QUERY = build_js_import_query(TSX_LANGUAGE)
 
 # Same query TEXT as plain TypeScript (proven to work identically on
 # TSX's structure), but must be compiled fresh against TSX_LANGUAGE -
@@ -29,8 +33,6 @@ TSX_QUERY = Query(TSX_LANGUAGE, """
 
 (interface_declaration
   name: (type_identifier) @interface.name) @interface.def
-
-(import_statement) @import.statement
 """)
 
 class TsxExtractor(BaseExtractor):
@@ -62,10 +64,7 @@ class TsxExtractor(BaseExtractor):
                         "end_line": def_node.end_point[0] + 1,
                     })
 
-        imports = []
-        for pattern_index, match in cursor.matches(tree.root_node):
-            if "import.statement" in match:
-                imports.append(match["import.statement"][0].text.decode("utf-8"))
+        imports = extract_js_imports(tree.root_node, TSX_IMPORT_QUERY)
 
         return {"language": "tsx", "entities": entities, "imports": imports}
 

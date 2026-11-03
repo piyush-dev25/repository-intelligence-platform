@@ -19,7 +19,8 @@ class FileKnowledge(Base):
 
     language: Mapped[str] = mapped_column(String(50))
     entities: Mapped[list[dict]] = mapped_column(JSON)
-    imports: Mapped[list[str]] = mapped_column(JSON)
+    # Structured imports: [{"module", "names", "is_relative", "line"}, ...]
+    imports: Mapped[list[dict]] = mapped_column(JSON)
     # Null until the summary pass has run for this file (or after the file's
     # content changed and the old summary was cleared as stale).
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)

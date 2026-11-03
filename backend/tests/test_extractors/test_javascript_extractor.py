@@ -15,4 +15,6 @@ def test_javascript_extractor():
         ("UserService", "class"),
         ("getUser", "method"),
     }
-    assert result["imports"] == ['import { readFile } from "fs";']
+    assert result["imports"] == [
+        {"module": "fs", "names": ["readFile"], "is_relative": False, "line": 19},
+    ]

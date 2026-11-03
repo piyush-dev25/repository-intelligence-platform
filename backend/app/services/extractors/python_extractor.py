@@ -59,7 +59,47 @@ class PythonExtractor(BaseExtractor):
         imports = []
         for pattern_index, match in cursor.matches(tree.root_node):
             if "import.statement" in match:
-                imports.append(match["import.statement"][0].text.decode("utf-8"))
+                imports.extend(_parse_python_import(match["import.statement"][0]))
 
+        imports.sort(key=lambda entry: entry["line"])
         return {"language": "python", "entities": entities, "imports": imports}
+
+
+# Turns one Python import statement into structured entries:
+#   import os, sys            -> two entries, names []
+#   from ..models import A, B -> module "..models" (dots kept), names ["A", "B"]
+#   from x import *           -> names ["*"]
+# Aliases are dropped - names are what the module actually exports.
+def _parse_python_import(node) -> list[dict]:
+    line = node.start_point[0] + 1
+
+    if node.type == "import_statement":
+        return [
+            _make_python_import(_original_name(name_node), [], line)
+            for name_node in node.children_by_field_name("name")
+        ]
+
+    module = node.child_by_field_name("module_name").text.decode("utf-8")
+    if any(child.type == "wildcard_import" for child in node.children):
+        names = ["*"]
+    else:
+        names = [_original_name(name_node) for name_node in node.children_by_field_name("name")]
+    return [_make_python_import(module, names, line)]
+
+
+# The real name behind a possibly-aliased import: "B" for `B as Bee`.
+def _original_name(name_node) -> str:
+    if name_node.type == "aliased_import":
+        name_node = name_node.child_by_field_name("name")
+    return name_node.text.decode("utf-8")
+
+
+# Assembles one import dict. Relative = starts with "." (from . / from ..x).
+def _make_python_import(module: str, names: list[str], line: int) -> dict:
+    return {
+        "module": module,
+        "names": names,
+        "is_relative": module.startswith("."),
+        "line": line,
+    }
 

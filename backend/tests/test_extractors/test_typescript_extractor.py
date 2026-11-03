@@ -16,5 +16,8 @@ def test_typescript_extractor():
         ("UserService", "class"),
         ("getUser", "method"),
     }
-    assert len(result["imports"]) == 2
+    assert result["imports"] == [
+        {"module": "./types", "names": ["User"], "is_relative": True, "line": 25},
+        {"module": "fs", "names": ["readFile"], "is_relative": False, "line": 28},
+    ]
 
