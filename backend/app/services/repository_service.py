@@ -239,7 +239,8 @@ def start_repository_analysis(
 
     # Must have gone through scanning at least once - PENDING/INGESTED/
     # SCANNING mean there are no RepositoryFile rows yet to analyze, and
-    # FAILED means something already went wrong upstream.
+    # FAILED means something already went wrong upstream. PAUSED is
+    # deliberately allowed: re-running analysis resumes a quota-paused repo.
     not_ready_statuses = {
         RepositoryStatus.PENDING,
         RepositoryStatus.INGESTED,

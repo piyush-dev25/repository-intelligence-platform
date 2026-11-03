@@ -20,7 +20,9 @@ class FileKnowledge(Base):
     language: Mapped[str] = mapped_column(String(50))
     entities: Mapped[list[dict]] = mapped_column(JSON)
     imports: Mapped[list[str]] = mapped_column(JSON)
-    summary: Mapped[str] = mapped_column(Text)
+    # Null until the summary pass has run for this file (or after the file's
+    # content changed and the old summary was cleared as stale).
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # The content_hash this knowledge was generated FROM - compare against
     # RepositoryFile.content_hash on re-scan to decide whether to re-summarize.

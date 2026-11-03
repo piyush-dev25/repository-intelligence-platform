@@ -92,7 +92,9 @@ def update_repository_analysis_summary(
     db.refresh(db_repo)
     return db_repo
 
-def update_repository_summary(db: Session, db_repo: Repository, repo_summary: str) -> Repository:
+# Saves the repo-level summary. None clears it, e.g. when it went stale
+# because new file summaries arrived but the repo summary couldn't be redone.
+def update_repository_summary(db: Session, db_repo: Repository, repo_summary: str | None) -> Repository:
     db_repo.repo_summary = repo_summary
     db.commit()
     db.refresh(db_repo)

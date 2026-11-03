@@ -23,6 +23,7 @@ class RepositoryStatus(str, PyEnum):
     SCANNED = "scanned"        # structural scan complete, not embedded yet
     ANALYZING = "analyzing"    # actively extracting structure + generating summaries~
     ANALYZED = "analyzed"      # structural extraction + summaries done, not embedded yet
+    PAUSED = "paused"          # daily LLM quota hit mid-analysis - re-run analysis later to resume
     EMBEDDING = "embedding"    # actively generating embeddings
     READY = "ready"            # fully processed, safe to query
     FAILED = "failed"          # something went wrong (see error_message)

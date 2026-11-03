@@ -5,9 +5,9 @@ from app.models.file_knowledge import FileKnowledge
 from app.models.repository import RepositoryFile
 
 
-# Saves a new FileKnowledge row after a file's been analyzed for the
-# first time (extraction + LLM summary already done by the caller -
-# this function only persists it).
+# Saves a new FileKnowledge row the first time a file's structure is
+# extracted. The summary is usually still empty at this point - the
+# summary pass fills it in later.
 def create_knowledge(db: Session, knowledge: FileKnowledge) -> FileKnowledge:
     db.add(knowledge)
     db.commit()
@@ -24,25 +24,35 @@ def get_knowledge_by_file(db: Session, repository_file_id: int) -> FileKnowledge
     return db.execute(statement).scalars().first()
 
 
-# Updates an existing knowledge row in place, for when a file changed
-# and needs re-analysis - avoids leaving stale duplicate rows behind,
-# since repository_file_id is unique (one knowledge row per file).
-def update_knowledge(
+# Overwrites an existing knowledge row's structure (language, entities,
+# imports) in place - one row per file, since repository_file_id is unique.
+# clear_summary=True wipes the summary when the file's content changed,
+# because the old summary describes code that no longer exists.
+def update_knowledge_structure(
     db: Session,
     existing: FileKnowledge,
     language: str,
     entities: list[dict],
     imports: list[str],
-    summary: str,
     source_content_hash: str,
+    clear_summary: bool,
 ) -> FileKnowledge:
     existing.language = language
     existing.entities = entities
     existing.imports = imports
-    existing.summary = summary
     existing.source_content_hash = source_content_hash
+    if clear_summary:
+        existing.summary = None
     db.commit()
     return existing
+
+
+# Saves one file's LLM summary. Called right after each summary is
+# generated, so progress survives a crash or quota hit mid-run.
+def update_knowledge_summary(db: Session, knowledge: FileKnowledge, summary: str) -> FileKnowledge:
+    knowledge.summary = summary
+    db.commit()
+    return knowledge
 
 # Gets every FileKnowledge row for a repo, by joining through
 # RepositoryFile (FileKnowledge has no direct repository_id of its own).
